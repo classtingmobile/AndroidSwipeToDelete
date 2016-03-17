@@ -34,7 +34,7 @@ public class SwipeToDeleteHandler {
 
     // Required stuff
     private SwipeToDeleteCompatibleInterface mInterface = null;
-    private SwipeToDeleteCompatibleAdapter mAdapter = null;
+    private RecyclerView.Adapter mAdapter = null;
 
     // Handler callback
     private final Runnable mHandlerCallback = new Runnable() {
@@ -64,8 +64,8 @@ public class SwipeToDeleteHandler {
     private ConcurrentSkipListMap<Integer, Object> mDeleteQueue = new ConcurrentSkipListMap<>();
     private ConcurrentSkipListMap<Integer, Object> mRestoreQueue = new ConcurrentSkipListMap<>();
 
-    public <T extends SwipeToDeleteCompatibleAdapter> SwipeToDeleteHandler(@NonNull Context context, @NonNull View view, @NonNull Handler uiHandler,
-                                                                           @NonNull T adapter, @NonNull SwipeToDeleteCompatibleInterface callback,
+    public <T extends SwipeToDeleteListener> SwipeToDeleteHandler(@NonNull Context context, @NonNull View view, @NonNull Handler uiHandler,
+                                                                           @NonNull RecyclerView.Adapter adapter, @NonNull SwipeToDeleteCompatibleInterface callback,
                                                                            @NonNull RecyclerView recyclerView) {
         mContext = context;
         mRootView = view;
@@ -86,9 +86,9 @@ public class SwipeToDeleteHandler {
 
         notifyUser(mRootView);
 
-        mAdapter.getData().remove(value);
+        ((SwipeToDeleteListener) mAdapter).getData().remove(value);
         mAdapter.notifyItemRemoved(currentPosition);
-        mAdapter.adaptHeight(mContext, mRecyclerView);
+        ((SwipeToDeleteListener) mAdapter).adaptHeight(mContext, mRecyclerView);
     }
 
     public void setup(@Nullable List<?> data){
@@ -144,7 +144,6 @@ public class SwipeToDeleteHandler {
     /**
      * Display a snackbar to the user and give him the chance to undo his actions
      *
-     * @param context
      * @param view
      */
     private void notifyUser(final View view) {
@@ -168,10 +167,10 @@ public class SwipeToDeleteHandler {
                             // Restore the elements in reverse order
                             for (Map.Entry<Integer, Object> entry : mDeleteQueue.entrySet()) {
                                 int insertIndex = getInitialListPosition(entry.getValue());
-                                mAdapter.addData(insertIndex, entry.getValue());
+                                ((SwipeToDeleteListener) mAdapter).addData(insertIndex, entry.getValue());
                             }
 
-                            mAdapter.adaptHeight(mContext, mRecyclerView);
+                            ((SwipeToDeleteListener) mAdapter).adaptHeight(mContext, mRecyclerView);
                             setUpDeleteQueue();
                             mCurrentActiveSnackbar = null;
                         }

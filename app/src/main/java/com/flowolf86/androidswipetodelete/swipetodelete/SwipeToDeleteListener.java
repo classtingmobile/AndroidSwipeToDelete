@@ -11,18 +11,18 @@ import java.util.List;
  *
  * A swipe to delete compatible adapter
  */
-public abstract class SwipeToDeleteCompatibleAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+public interface SwipeToDeleteListener {
 
     /**
      * get all adapter data
      * @return
      */
-    public abstract List<?> getData();
+    List<?> getData();
 
     /**
      * convinience method. get the size of the adapter data
      */
-    public abstract int getDataSize();
+    int getDataSize();
 
     /**
      * add data at index to adapter
@@ -30,12 +30,12 @@ public abstract class SwipeToDeleteCompatibleAdapter extends RecyclerView.Adapte
      * @param data
      * @return
      */
-    public abstract boolean addData(int index, @NonNull Object data);
+    boolean addData(int index, @NonNull Object data);
 
     /**
      * adapt the list height to match the new number of list items
      * @param context
      * @param view
      */
-    public abstract void adaptHeight(@NonNull Context context, @NonNull RecyclerView view);
+    void adaptHeight(@NonNull Context context, @NonNull RecyclerView view);
 }
