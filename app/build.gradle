@@ -1,4 +1,8 @@
 apply plugin: 'com.android.application'
+apply plugin: 'com.github.dcendents.android-maven'
+
+group='com.github.classtingmobile'
+version='1.0'
 
 android {
     compileSdkVersion 23
@@ -6,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId "com.flowolf86.androidswipetodelete"
-        minSdkVersion 21
+        minSdkVersion 16
         targetSdkVersion 23
         versionCode 1
         versionName "1.0"
