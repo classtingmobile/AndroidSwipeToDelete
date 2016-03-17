@@ -1,2 +1,2 @@
 include ':app'
-rootProject.name = 'AndroidSwipeToDelete'
+rootProject.name = 'androidswipetodelete'
