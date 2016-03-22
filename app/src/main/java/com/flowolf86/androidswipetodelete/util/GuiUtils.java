@@ -8,10 +8,7 @@ import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
-import android.support.v4.content.ContextCompat;
 import android.view.View;
-
-import com.flowolf86.androidswipetodelete.R;
 
 /**
  * Created by github.com/flowolf86/ on 20.07.15
@@ -42,7 +39,7 @@ public class GuiUtils {
      * @param snackbarDuration
      */
     public static @Nullable Snackbar displaySnackbar(@Nullable final View rootView, final String snackbarText, final String actionCallbackText,
-                             final View.OnClickListener actionCallback, long displayDelay, final int snackbarDuration) {
+                                                     final View.OnClickListener actionCallback, final Snackbar.Callback visibleCallback, long displayDelay, final int snackbarDuration) {
 
         if(rootView != null) {
             final Snackbar snackbar = Snackbar.make(rootView, snackbarText, snackbarDuration);
@@ -53,9 +50,8 @@ public class GuiUtils {
                     if (actionCallback != null && actionCallbackText != null) {
                         snackbar.setAction(actionCallbackText, actionCallback);
                     }
-                    snackbar.getView().setBackgroundColor(ContextCompat.getColor(snackbar.getView().getContext(), R.color.colorPrimaryDark));
-                    snackbar.setActionTextColor(ContextCompat.getColor(rootView.getContext(), R.color.colorAccent));
-                    snackbar.show();
+                    snackbar.setCallback(visibleCallback)
+                            .show();
                 }
             }, displayDelay);
             return snackbar;

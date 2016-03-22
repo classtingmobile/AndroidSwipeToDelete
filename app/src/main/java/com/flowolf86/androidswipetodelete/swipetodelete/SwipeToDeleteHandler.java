@@ -1,7 +1,5 @@
 package com.flowolf86.androidswipetodelete.swipetodelete;
 
-import android.content.Context;
-import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
@@ -12,7 +10,6 @@ import com.flowolf86.androidswipetodelete.util.GuiUtils;
 
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
@@ -24,35 +21,14 @@ import java.util.concurrent.ConcurrentSkipListMap;
  */
 public class SwipeToDeleteHandler {
 
-    public static final int USER_UNDO_TIMEFRAME = 4000;
-
     private Snackbar mCurrentActiveSnackbar = null;
-    private Context mContext = null;
     private View mRootView = null;
-    private Handler mUiHandler = null;
-    private RecyclerView mRecyclerView = null;
-
+    private String mUndoMessage = null;
+    private String mUndoButtonText = null;
+    private UndoCallback mCallback = null;
+    private boolean mSingleDelete = false;
     // Required stuff
-    private SwipeToDeleteCompatibleInterface mInterface = null;
     private RecyclerView.Adapter mAdapter = null;
-
-    // Handler callback
-    private final Runnable mHandlerCallback = new Runnable() {
-        @Override
-        public void run() {
-
-            // Copy list to ensure multithreaded safety
-            TreeMap<Integer, Object> mDeleteQueueCopy = new TreeMap<>(mDeleteQueue);
-
-            mInterface.onMultipleElementsSwiped(mDeleteQueueCopy);
-            setUpDeleteQueue();
-
-            if(mCurrentActiveSnackbar != null){
-                mCurrentActiveSnackbar.dismiss();
-                mCurrentActiveSnackbar = null;
-            }
-        }
-    };
 
     /**
      * The queue with trips that have to be deleted if the user swipes more than one trip while the other can still be undone
@@ -64,31 +40,42 @@ public class SwipeToDeleteHandler {
     private ConcurrentSkipListMap<Integer, Object> mDeleteQueue = new ConcurrentSkipListMap<>();
     private ConcurrentSkipListMap<Integer, Object> mRestoreQueue = new ConcurrentSkipListMap<>();
 
-    public <T extends SwipeToDeleteListener> SwipeToDeleteHandler(@NonNull Context context, @NonNull View view, @NonNull Handler uiHandler,
-                                                                           @NonNull RecyclerView.Adapter adapter, @NonNull SwipeToDeleteCompatibleInterface callback,
-                                                                           @NonNull RecyclerView recyclerView) {
-        mContext = context;
+    public SwipeToDeleteHandler(@NonNull View view, @NonNull RecyclerView.Adapter adapter, @NonNull UndoCallback callback,
+                                @NonNull boolean sigleDelete, @NonNull String undoMessage, @NonNull String undoButtonText) {
         mRootView = view;
-        mUiHandler = uiHandler;
         mAdapter = adapter;
-        mInterface = callback;
-        mRecyclerView = recyclerView;
+        mCallback = callback;
+        mSingleDelete = sigleDelete;
+        mUndoMessage = undoMessage;
+        mUndoButtonText = undoButtonText;
     }
 
-    public void addDelete(final int currentPosition, final Object value){
+    public void deleteData(final int currentPosition, final Object value){
 
         // We can not use the current position as key in the list here
         // because a new item may get the same position after the swipe
         // e.g. position 0. Therefore we have to use the key from the
         // restore map to store as key in the delete queue too
-        int restoreIndex = getInitialListPosition(value);
+
+        int restoreIndex = mSingleDelete? 0 : getInitialListPosition(value);
         mDeleteQueue.put(restoreIndex, value);
 
         notifyUser(mRootView);
+        setUpRestoreQueue(((SwipeToDeleteListener) mAdapter).getData());
+        ((SwipeToDeleteListener) mAdapter).removeData(currentPosition, value);
+//        ((SwipeToDeleteListener) mAdapter).adaptHeight(mContext, mRecyclerView);
+    }
 
-        ((SwipeToDeleteListener) mAdapter).getData().remove(value);
-        mAdapter.notifyItemRemoved(currentPosition);
-        ((SwipeToDeleteListener) mAdapter).adaptHeight(mContext, mRecyclerView);
+    public void undo() {
+        // Restore the elements in reverse order
+        for (Map.Entry<Integer, Object> entry : mDeleteQueue.entrySet()) {
+            int insertIndex = getInitialListPosition(entry.getValue());
+            ((SwipeToDeleteListener) mAdapter).addData(insertIndex, entry.getValue());
+            setUpRestoreQueue(((SwipeToDeleteListener) mAdapter).getData());
+        }
+//                            ((SwipeToDeleteListener) mAdapter).adaptHeight(mContext, mRecyclerView);
+        setUpDeleteQueue();
+        mCurrentActiveSnackbar = null;
     }
 
     public void setup(@Nullable List<?> data){
@@ -98,13 +85,13 @@ public class SwipeToDeleteHandler {
 
     public void reset(@Nullable List<?> data){
         setup(data);
-        mCurrentActiveSnackbar = null;
+        if(mCurrentActiveSnackbar != null){
+            mCurrentActiveSnackbar.dismiss();
+            mCurrentActiveSnackbar = null;
+        }
     }
 
     public void finish(){
-
-        mInterface.onMultipleElementsSwiped(mDeleteQueue);
-
         // Hide snackbar so that it does not show up again if we quickly navigate to the fragment again
         if(mCurrentActiveSnackbar != null){
             mCurrentActiveSnackbar.dismiss();
@@ -148,39 +135,35 @@ public class SwipeToDeleteHandler {
      */
     private void notifyUser(final View view) {
 
-        // If this happens within the old snackbar timeframe, remove the old callback and set a new one
-        mUiHandler.removeCallbacks(mHandlerCallback);
-
         // Check if we already have an active snackbar. If yes, extend the duration, if no, show new one
         if(mCurrentActiveSnackbar == null){
 
             mCurrentActiveSnackbar = GuiUtils.displaySnackbar(view,
-                    "Deleted ("+mDeleteQueue.size()+")",
-                    "UNDO",
+                    mUndoMessage,
+                    mUndoButtonText,
                     new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
-
-                            // Remove handler callback
-                            mUiHandler.removeCallbacks(mHandlerCallback);
-
-                            // Restore the elements in reverse order
                             for (Map.Entry<Integer, Object> entry : mDeleteQueue.entrySet()) {
                                 int insertIndex = getInitialListPosition(entry.getValue());
-                                ((SwipeToDeleteListener) mAdapter).addData(insertIndex, entry.getValue());
+                                if (mCallback != null) {
+                                    mCallback.undo(insertIndex);
+                                }
                             }
-
-                            ((SwipeToDeleteListener) mAdapter).adaptHeight(mContext, mRecyclerView);
+                        }
+                    },
+                    new Snackbar.Callback() {
+                        @Override
+                        public void onDismissed(Snackbar snackbar, int event) {
+                            super.onDismissed(snackbar, event);
+                            setUpRestoreQueue(((SwipeToDeleteListener) mAdapter).getData());
                             setUpDeleteQueue();
                             mCurrentActiveSnackbar = null;
                         }
                     }, GuiUtils.SNACKBAR_NO_DELAY, Snackbar.LENGTH_INDEFINITE);
         } else {
-
-            mCurrentActiveSnackbar.setText("Deleted ("+mDeleteQueue.size()+")");
+            mCurrentActiveSnackbar.setText(mUndoMessage);
         }
-
-        mUiHandler.postDelayed(mHandlerCallback, USER_UNDO_TIMEFRAME);
     }
 
     private int getInitialListPosition(final Object value) {
